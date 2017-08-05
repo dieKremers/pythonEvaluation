@@ -1,6 +1,5 @@
 # import the necessary packages
 from __future__ import print_function
-from imutils.video.pivideostream import PiVideoStream
 from imutils.video import FPS
 from picamera.array import PiRGBArray
 from picamera import PiCamera
@@ -10,7 +9,9 @@ import imutils
 import time
 import cv2
 
-display = 1
+display = 0
+safeImages = 1
+videoLength = 5 #ms
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
@@ -20,51 +21,6 @@ ap.add_argument("-d", "--display", type=int, default=-1,
 	help="Whether or not frames should be displayed")
 args = vars(ap.parse_args())
  
-# initialize the camera and stream
-camera = PiCamera()
-camera.resolution = (800, 200)
-camera.framerate = 32
-camera.shutter_speed = 250
-rawCapture = PiRGBArray(camera, size=(800, 200))
-stream = camera.capture_continuous(rawCapture, format="bgr", use_video_port=True)
-
-# allow the camera to warmup and start the FPS counter
-print("[INFO] sampling frames from `picamera` module...")
-time.sleep(2.0)
-fps = FPS().start()
- 
-# loop over some frames
-for (i, f) in enumerate(stream):
-	# grab the frame from the stream and resize it to have a maximum
-	# width of 400 pixels
-	frame = f.array
-	frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-	#frame = imutils.resize(frame, width=800)
- 
-	# check to see if the frame should be displayed to our screen
-	if display > 0:
-		cv2.imshow("Frame", frame)
-		key = cv2.waitKey(1) & 0xFF
- 
-	# clear the stream in preparation for the next frame and update
-	# the FPS counter
-	rawCapture.truncate(0)
-	fps.update()
- 
-	# check to see if the desired number of frames have been reached
-	if i == args["num_frames"]:
-		break
- 
-# stop the timer and display FPS information
-fps.stop()
-print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
- 
-# do a bit of cleanup
-cv2.destroyAllWindows()
-stream.close()
-rawCapture.close()
-camera.close()
 
 # created a *threaded *video stream, allow the camera sensor to warmup,
 # and start the FPS counter
@@ -73,14 +29,22 @@ vs = MyPiVideoStream()#(640, 480), 32)
 vs.start()
 time.sleep(2.0)
 fps = FPS().start()
- 
+i = 0;
+deadline = time.time() + videoLength
+print("start time: ", time.time() )
+print("deadline:   ", deadline )
 # loop over some frames...this time using the threaded stream
-while fps._numFrames < args["num_frames"]:
+while deadline > time.time(): #fps._numFrames < args["num_frames"]:
 	# grab the frame from the threaded video stream and resize it
 	# to have a maximum width of 400 pixels
 	frame = vs.read()
 	frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-	#frame = imutils.resize(frame, width=800)
+	
+	if safeImages > 0:
+            i = i + 1
+            basePath = "/home/pi/projects/pythonEvaluation/images/pic_"
+            path = basePath + str( i ) + ".jpg"
+            cv2.imwrite( path, frame )
  
 	# check to see if the frame should be displayed to our screen
 	if display > 0:
