@@ -3,14 +3,14 @@ from picamera.array import PiRGBArray
 from picamera import PiCamera
 from threading import Thread
 import cv2
- 
+
 class MyPiVideoStream:
 	def __init__(self, resolution=(800, 200), framerate=90):
 		# initialize the camera and stream
 		self.camera = PiCamera()
 		self.camera.resolution = resolution
 		self.camera.framerate = framerate
-		self.camera.shutter_speed = 500 # 4000 = 250fps | 1000 = 1000fps
+		self.camera.shutter_speed = 1000 # 4000 = 250fps | 1000 = 1000fps
 		self.camera.vflip = False
 		self.rawCapture = PiRGBArray(self.camera, size=resolution)
 		self.stream = self.camera.capture_continuous(self.rawCapture,
