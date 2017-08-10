@@ -23,6 +23,7 @@ class MyPiVideoStream:
 		
 	def start(self):
 		# start the thread to read frames from the video stream
+		self.stopped = False
 		Thread(target=self.update, args=()).start()
 		return self
  

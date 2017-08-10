@@ -1,114 +1,106 @@
 # import the necessary packages
-from __future__ import print_function
-from imutils.video import FPS
-from picamera.array import PiRGBArray
-from picamera import PiCamera
+##from __future__ import print_function
+##from picamera.array import PiRGBArray
+##from picamera import PiCamera
+from soundplayer import Soundplayer
 from camera_threaded import MyPiVideoStream
 import RPi.GPIO as GPIO
-import argparse
-import imutils
+##import argparse
+##import imutils
+import os
 import time
 import cv2
-import pygame
-pygame.mixer.init()
-pygame.mixer.music.load("./sounds/beep-01a.wav")
+
 display = 0
-safeImages = 1
 videoLength = 10 #s
 capture = False
-capture
+isqualifying = False
+startTime = 0
+finishTime = 0
 vs = MyPiVideoStream((608, 208), 90)
-
+soundplayer = Soundplayer
 RECEIVER_PIN = 4
+basePath = "/home/pi/projects/pythonEvaluation/images/"
+startTrigger = "/home/pi/projects/pythonEvaluation/images/start_race.txt"
+qualifyingTrigger = "/home/pi/projects/pythonEvaluation/images/start_qualifying.txt"
+finishPicture = "finished"
  
 def callback_func_covered(channel):
     if GPIO.input(channel):
-        time.sleep(0.025)
+        ##time.sleep(0.025)
         global capture
-        print ("Rising Edge Detected at ", time.time() )
+        ##print ("Rising Edge Detected at ", time.time() )
         capture = True
     else:
         time.sleep(0.1)
         capture = False
-        print ("Falling Edge Detected at ", str(time.time()) )
+        ##print ("Falling Edge Detected at ", str(time.time()) )
 
+def qualifyingCallback(channel):
+    if GPIO.input(channel):
+        global startTime
+        global isqualifying
+        global soundplayer
+        global finishTime
+        if ((time.time() - startTime)>2.5):
+            isqualifying = False
+            finishTime = time.time()
+
+def createStartPicture():
+    path = basePath + "startTime_" + str(time.time()) + ".png"
+    os.mknod(path)
+
+def run():
+    vs.start()
+    soundplayer.play_startRace()
+    createStartPicture()
+    deadline = time.time() + videoLength
+    # loop over some frames...this time using the threaded stream
+    while os.path.isfile(startTrigger): ##deadline > time.time():
+            # grab the frame from the threaded video stream
+            frame = vs.read()
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+            picTime = time.time()
+            if ( capture ): ##set True and False in GPIO Callback
+                timeString = "%.3f" % (picTime)
+                path = basePath + "pic_" + timeString + ".png"
+                cv2.imwrite( path, frame )
+
+    soundplayer.play_RaceOver()
+    vs.stop()
+
+#-------- Main Program -----------
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
     
 GPIO.setup(RECEIVER_PIN, GPIO.IN)
-GPIO.add_event_detect(RECEIVER_PIN, GPIO.BOTH, callback=callback_func_covered, bouncetime=10)
-##GPIO.add_event_detect(RECEIVER_PIN, GPIO.FALLING, callback=callback_func_free, bouncetime=200)
 
-          
 
-# construct the argument parse and parse the arguments
-ap = argparse.ArgumentParser()
-ap.add_argument("-n", "--num-frames", type=int, default=100,
-	help="# of frames to loop over for FPS test")
-ap.add_argument("-d", "--display", type=int, default=-1,
-	help="Whether or not frames should be displayed")
-args = vars(ap.parse_args())
- 
-
-# created a *threaded *video stream, allow the camera sensor to warmup,
-# and start the FPS counter
-print("[INFO] sampling THREADED frames from `picamera` module...")
-
-vs.start()
-time.sleep(2.0)
-
-pygame.mixer.music.load("./sounds/beep-02.wav")
-for j in range(0, 1):
-    pygame.mixer.music.play()
-    while pygame.mixer.music.get_busy() == True:
-        continue
+##run()
+##endless loop
+while True:
     time.sleep(1)
+    if os.path.isfile(startTrigger):
+        print ("Starting Race ...")
+        GPIO.add_event_detect(RECEIVER_PIN, GPIO.BOTH, callback=callback_func_covered)
+        run()
+        GPIO.remove_event_detect(RECEIVER_PIN)
+        print("... Race over")
+    if os.path.isfile(qualifyingTrigger):
+        print ("Start Qualifying...")
+        os.remove( qualifyingTrigger )
+        GPIO.add_event_detect(RECEIVER_PIN, GPIO.RISING, callback=qualifyingCallback)
+        soundplayer.play_startRace()
+        startTime = time.time()
+        createStartPicture()
+        isqualifying = True
+        while isqualifying:
+            time.sleep(0.1)
+        soundplayer.play_RaceOver()
+        path = basePath + finishPicture + "_" + str(finishTime) + ".png"
+        os.mknod(path)
+        GPIO.remove_event_detect(RECEIVER_PIN)
+        print("... Qualifying over")
 
-pygame.mixer.music.load("./sounds/beep-01a.wav")
-pygame.mixer.music.play()
-while pygame.mixer.music.get_busy() == True:
-    continue
-
-deadline = time.time() + videoLength
-print("start time: ", time.time() )
-print("deadline:   ", deadline )
-fps = FPS().start()
-i = 0;
-basePath = "/home/pi/projects/pythonEvaluation/images/pic_"
-
-# loop over some frames...this time using the threaded stream
-while deadline > time.time(): #fps._numFrames < args["num_frames"]:
-	# grab the frame from the threaded video stream and resize it
-	# to have a maximum width of 400 pixels
-	frame = vs.read()
-	frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-	picTime = time.time()
-	if ( capture ): ##safeImages > 0:
-            wasOn = True
-            i = i + 1
-            timeString = "%.3f" % (picTime)
-            path = basePath + timeString + ".png"
-            cv2.imwrite( path, frame )
- 
-	# check to see if the frame should be displayed to our screen
-	if display > 0:
-		cv2.imshow("Frame", frame)
-		key = cv2.waitKey(1) & 0xFF
- 
-	# update the FPS counter
-	fps.update()
- 
-# stop the timer and display FPS information
-fps.stop()
-print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
-
-pygame.mixer.music.load("./sounds/beep-09.wav")
-pygame.mixer.music.play()
-while pygame.mixer.music.get_busy() == True:
-    continue
- 
-# do a bit of cleanup
+print("das war's")
 GPIO.remove_event_detect(RECEIVER_PIN)
-cv2.destroyAllWindows()
-vs.stop()
