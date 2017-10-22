@@ -1,5 +1,6 @@
 ##from soundplayer import Soundplayer
 from camera_threaded import MyPiVideoStream
+from soundplayThreaded import MyPiSoundplayer
 import RPi.GPIO as GPIO
 import pygame
 ##import argparse
@@ -19,27 +20,36 @@ RECEIVER_PIN = 4
 basePath = "/home/pi/projects/pythonEvaluation/images/"
 startTrigger = "/home/pi/projects/pythonEvaluation/images/start_race.txt"
 qualifyingTrigger = "/home/pi/projects/pythonEvaluation/images/start_qualifying.txt"
+checkConnection = "/home/pi/projects/pythonEvaluation/images/checkConnection.txt"
 finishPicture = "finished"
+soundplayer = MyPiSoundplayer(basePath)
 
-def play_startRace():
-    pygame.mixer.init()
-    pygame.mixer.music.load("./sounds/beep-02.wav")
-    for j in range(0, 5):
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy() == True:
-            continue
-        time.sleep(1)
-    pygame.mixer.music.load("./sounds/beep-01a.wav")
-    createStartPicture()
-    pygame.mixer.music.play()
+##def playWelcome():
+##    pygame.mixer.init()
+##    pygame.mixer.music.load("/home/pi/projects/pythonEvaluation/sounds/im-so-ready.wav")
+##    pygame.mixer.music.play()
+##    while pygame.mixer.music.get_busy() == True:
+##        continue    
+
+##def play_startRace():
+##    pygame.mixer.init()
+##    pygame.mixer.music.load("/home/pi/projects/pythonEvaluation/sounds/beep-02.wav")
+##    for j in range(0, 5):
+##        pygame.mixer.music.play()
+##        while pygame.mixer.music.get_busy() == True:
+##            continue
+##        time.sleep(1)
+##    pygame.mixer.music.load("/home/pi/projects/pythonEvaluation/sounds/beep-01a.wav")
+##    createStartPicture()
+##    pygame.mixer.music.play()
 ##    while pygame.mixer.music.get_busy() == True:
 ##        continue
         
-def play_RaceOver():
-    pygame.mixer.music.load("./sounds/beep-09.wav")
-    pygame.mixer.music.play()
-    while pygame.mixer.music.get_busy() == True:
-        continue
+##def play_RaceOver():
+##    pygame.mixer.music.load("/home/pi/projects/pythonEvaluation/sounds/beep-09.wav")
+##    pygame.mixer.music.play()
+##    while pygame.mixer.music.get_busy() == True:
+##        continue
 
 def callback_func_covered(channel):
     if GPIO.input(channel):
@@ -59,29 +69,33 @@ def qualifyingCallback(channel):
             isqualifying = False
             finishTime = time.time()
 
-def createStartPicture():
-    global startTime
-    startTime = time.time()
-    path = basePath + "startTime_" + str(startTime) + ".png"
-    os.mknod(path)
+##def createStartPicture():
+##    global startTime
+##    startTime = time.time()
+##    path = basePath + "startTime_" + str(startTime) + ".png"
+##    os.mknod(path)
 
 def run():
 ##    vs.start()
-    play_startRace()
+    #play_startRace()
+    soundplayer.playStart()
     # loop over some frames...this time using the threaded stream
-    while True: 
+    while True:
             # grab the frame from the threaded video stream
             frame = vs.read()
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
             picTime = time.time()
             if ( capture ): ##set True and False in GPIO Callback
+                if soundplayer.isActive() == True:
+                    #FEHLSTART
+                    soundplayer.playStop()
                 timeString = "%.3f" % (picTime)
                 path = basePath + "pic_" + timeString + ".png"
                 cv2.imwrite( path, frame )
             if not os.path.isfile(startTrigger):
                 break
 
-    play_RaceOver()
+    soundplayer.playStop()
 
 #-------- Main Program -----------
 GPIO.setmode(GPIO.BCM)
@@ -90,7 +104,8 @@ GPIO.setwarnings(False)
 GPIO.setup(RECEIVER_PIN, GPIO.IN)
 
 vs.start()
-
+soundplayer.start()
+soundplayer.playWelcome()
 ##run()
 ##endless loop
 while True:
@@ -105,15 +120,18 @@ while True:
         print ("Start Qualifying...")
         os.remove( qualifyingTrigger )
         GPIO.add_event_detect(RECEIVER_PIN, GPIO.RISING, callback=qualifyingCallback)
-        play_startRace()
+        soundplayer.playStart()
         isqualifying = True
         while isqualifying:
             time.sleep(0.1)
-        play_RaceOver()
+        soundplayer.playStop()
         path = basePath + finishPicture + "_" + str(finishTime) + ".png"
         os.mknod(path)
         GPIO.remove_event_detect(RECEIVER_PIN)
         print("... Qualifying over")
+    if os.path.isfile(checkConnection):
+        print('System PC checks connection...')
+        os.remove( checkConnection )
 
 print("das war's")
 vs.stop()

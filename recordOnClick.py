@@ -38,7 +38,7 @@ while True: #fps._numFrames < args["num_frames"]:
 	# grab the frame from the threaded video stream and resize it
 	# to have a maximum width of 400 pixels
 	frame = vs.read()
-	frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+	#frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 	cv2.imshow("Frame", frame)
 	key = cv2.waitKey(1) & 0xFF	
 	
